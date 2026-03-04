@@ -1,0 +1,128 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum DocumentStatus {
+  ACTIVE
+  BORROWED
+  EXPIRED
+  ARCHIVED
+}
+
+enum BorrowStatus {
+  ACTIVE
+  RETURNED
+  DUE
+}
+
+enum AuditLogAction {
+  DOCUMENT_CREATED
+  DOCUMENT_MODIFIED
+  DOCUMENT_DELETED
+  DOCUMENT_BACKUP
+  DOCUMENT_RESTORED
+  DOCUMENT_RENEWED
+  DOCUMENT_ARCHIVED
+  DOCUMENT_UNARCHIVED
+  DOCUMENT_BORROWED
+  DOCUMENT_RETURNED
+  DOCUMENT_LOCATION_CHANGE
+  ACCOUNT_CREATED
+  ACCOUNT_MODIFIED
+  ACCOUNT_DELETED
+  ACCOUNT_LOGIN
+  ACCOUNT_LOGOUT
+}
+
+model User {
+  id            String    @id @default(uuid())
+  fullname      String
+  birthDate     DateTime?
+  address       String?
+  contactNumber String?
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+
+  documents Document[]
+  borrows   BorrowTransaction[]
+  auditLogs AuditLog[]
+}
+
+model DocumentType {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  documents Document[]
+}
+
+model Document {
+  id             String         @id @default(uuid())
+  filePath       String?
+  location       String
+  status         DocumentStatus @default(ACTIVE)
+  version        Int            @default(1)
+  expirationDate DateTime?
+  isDeleted      Boolean        @default(false)
+  backupPath     String?
+  createdAt      DateTime       @default(now())
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+
+  documentTypeId String
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
+
+  renewedFromId String?
+  renewedFrom   Document?  @relation("Renewal", fields: [renewedFromId], references: [id])
+  renewedTo     Document[] @relation("Renewal")
+
+  borrows   BorrowTransaction[]
+  auditLogs AuditLog[]
+}
+
+model BorrowTransaction {
+  id         String       @id @default(uuid())
+  borrowDate DateTime     @default(now())
+  dueDate    DateTime?
+  returnDate DateTime?
+  status     BorrowStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id])
+
+  borrowerId String
+  borrower   User   @relation(fields: [borrowerId], references: [id])
+}
+
+model AuditLog {
+  id        String         @id @default(uuid())
+  action    AuditLogAction
+  details   String?
+  createdAt DateTime       @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id])
+}
