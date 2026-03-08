@@ -1,6 +1,5 @@
 "use server";
 
-// import { verifySession } from "@/lib/dal";
 import {
   EditDocumentOwnerZodSchema,
   EditDocumentTypeZodSchema,
@@ -10,6 +9,8 @@ import {
 import * as z from "zod";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { verifySession } from "@/lib/dal";
+import { getIpAddress } from "@/lib/getIpAddress";
 
 export async function editVersionAction(
   _state: FormState,
@@ -27,8 +28,6 @@ export async function editVersionAction(
     };
   }
 
-  // const { userId } = await verifySession();
-
   const id = formData.get("id");
 
   if (!id || typeof id !== "string") {
@@ -38,6 +37,18 @@ export async function editVersionAction(
   const result = await prisma.document.update({
     where: { id: id as string },
     data: { version: Number(validatedFields.data.version) },
+    include: { documentType: true },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
+    },
   });
 
   revalidatePath("/admin/storage");
@@ -81,6 +92,17 @@ export async function editDocumentTypeAction(
     include: { documentType: true },
   });
 
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
+    },
+  });
+
   revalidatePath("/admin/storage");
 
   return {
@@ -122,12 +144,23 @@ export async function editDocumentOwnerAction(
     return { message: "Selected user does not exist." };
   }
 
-  await prisma.document.update({
+  const result = await prisma.document.update({
     where: { id: documentId },
     data: {
       owner: {
         connect: { id: ownerId },
       },
+    },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
     },
   });
 
@@ -144,17 +177,26 @@ export async function editExpirationDateAction(
 ): Promise<FormState> {
   const date = new Date(formData.get("expirationDate")!.toString());
 
-  // const { userId } = await verifySession();
-
   const id = formData.get("id");
 
   if (!id || typeof id !== "string") {
     return { message: "Invalid document ID." };
   }
 
-  await prisma.document.update({
+  const result = await prisma.document.update({
     where: { id: id as string },
     data: { expirationDate: date },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
+    },
   });
 
   revalidatePath("/admin/storage");

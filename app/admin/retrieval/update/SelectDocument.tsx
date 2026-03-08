@@ -1,7 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -11,9 +17,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DocumentStatus, Role } from "@/lib/generated/prisma/enums";
-import { Download, FolderSync } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { use, useState, useTransition } from "react";
 import { toast } from "sonner";
+import * as React from "react";
+import { Calendar } from "@/components/ui/calendar";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { renewDocumentAction } from "./renew-document-action";
 
 export default function SelectDocument({
   documents,
@@ -53,6 +69,7 @@ export default function SelectDocument({
   >;
 }) {
   const docs = use(documents);
+
   const [selectedDocs, setSelectedDocs] = useState<
     | ({
         owner: {
@@ -87,6 +104,8 @@ export default function SelectDocument({
       })
     | undefined
   >(undefined);
+  const [date, setDate] = React.useState<Date>();
+  const today = new Date();
 
   const [isPending, startTransition] = useTransition();
 
@@ -95,6 +114,10 @@ export default function SelectDocument({
       <Card>
         <CardHeader>
           <CardTitle>Renew a document</CardTitle>
+          <CardDescription>
+            Renewing a document will archive the older version and create a new
+            document with the next version.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
@@ -143,21 +166,45 @@ export default function SelectDocument({
                 </CardContent>
               </Card>
             )}
-            <DatePicker />
+            <Field className="w-44">
+              <FieldLabel htmlFor="date-picker-simple">
+                Pick a new expiration date
+              </FieldLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    id="date-picker-simple"
+                    className="justify-start font-normal"
+                  >
+                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    disabled={{ before: today }}
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    defaultMonth={date}
+                  />
+                </PopoverContent>
+              </Popover>
+            </Field>
             <Button
               size="lg"
-              disabled={!selectedDocs || isPending}
+              disabled={!selectedDocs || isPending || !date}
               onClick={() =>
                 startTransition(async () => {
                   if (!selectedDocs) return;
-                  await restoreAction(selectedDocs.id);
+                  await renewDocumentAction(selectedDocs.id, date!);
                   setSelectedDocs(undefined);
                   toast("Document renewed successfully.");
                 })
               }
             >
-              Restore document
-              <FolderSync />
+              Renew document
+              <RotateCcw />
             </Button>
           </div>
         </CardContent>

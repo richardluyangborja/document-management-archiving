@@ -20,15 +20,31 @@ import {
 } from "@/components/ui/dialog";
 import { verifySession } from "@/lib/dal";
 import prisma from "@/lib/prisma";
+import RequestBorrow from "./RequestBorrow";
 
 export default async function page() {
   const { userId } = await verifySession();
   const documents = await prisma.document.findMany({
-    where: { ownerId: userId },
-    include: { documentType: true, owner: true },
+    include: { documentType: true, owner: true, borrows: true },
+    where: { isDeleted: false, ownerId: userId },
   });
-  const archived = documents.filter((d) => d.status === "ARCHIVED");
-  const borrowed = documents.filter((d) => d.status === "BORROWED");
+
+  const computedDocs = documents.map((d) => {
+    const activeBorrow = d.borrows.filter((a) => a.status === "ACTIVE");
+    const pendingBorrow = d.borrows.filter((a) => a.status === "PENDING");
+    if (activeBorrow.length !== 0)
+      return {
+        ...d,
+        status: "BORROWED",
+      };
+    return {
+      ...d,
+      status: pendingBorrow.length !== 0 ? "PENDING" : d.status,
+    };
+  });
+
+  const archived = computedDocs.filter((d) => d.status === "ARCHIVED");
+  const borrowed = computedDocs.filter((d) => d.status === "BORROWED");
 
   return (
     <>
@@ -71,7 +87,7 @@ export default async function page() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
-              {documents.map((d) => (
+              {computedDocs.map((d) => (
                 <div key={d.id} className="border border-border p-2 rounded-lg">
                   <div className="flex items-center gap-4">
                     <Folder />
@@ -95,6 +111,9 @@ export default async function page() {
                         Download
                       </a>
                     </Button>
+                    {d.status !== "PENDING" && d.status !== "BORROWED" && (
+                      <RequestBorrow docId={d.id} borrowerId={userId} />
+                    )}
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="outline">

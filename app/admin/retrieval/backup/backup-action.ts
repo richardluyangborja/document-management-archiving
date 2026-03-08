@@ -4,6 +4,8 @@ import fs from "fs/promises";
 import path from "path";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { verifySession } from "@/lib/dal";
+import { getIpAddress } from "@/lib/getIpAddress";
 
 export async function createBackup(documentId: string) {
   const document = await prisma.document.findUnique({
@@ -28,10 +30,21 @@ export async function createBackup(documentId: string) {
 
   await fs.copyFile(sourcePath, destinationPath);
 
-  await prisma.document.update({
+  const result = await prisma.document.update({
     where: { id: documentId },
     data: {
       backupPath: `/backups/${backupFileName}`,
+    },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_BACKUP",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
     },
   });
 

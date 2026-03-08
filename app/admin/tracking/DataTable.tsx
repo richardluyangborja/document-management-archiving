@@ -12,7 +12,6 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -34,9 +33,6 @@ import {
 } from "@/lib/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import UpdateLocation from "./UpdateLocation";
-import ArchiveDocument from "./ArchiveDocument";
-import UnarchiveDocument from "./UnarchiveDocument";
-import BorrowDocument from "./BorrowDocument";
 import ReturnDocument from "./ReturnDocument";
 import DeleteDocument from "./DeleteDocument";
 
@@ -89,10 +85,17 @@ export default function DataTable({
 
   const computedDocs = docs.map((d) => {
     const activeBorrow = d.borrows.filter((a) => a.status === "ACTIVE");
+    const pendingBorrow = d.borrows.filter((a) => a.status === "PENDING");
+    if (activeBorrow.length !== 0)
+      return {
+        ...d,
+        status: "BORROWED",
+        transactionId: activeBorrow.length !== 0 ? activeBorrow[0].id : null,
+      };
     return {
       ...d,
-      status: activeBorrow.length !== 0 ? "BORROWED" : d.status,
-      transactionId: activeBorrow.length !== 0 ? activeBorrow[0].id : null,
+      status: pendingBorrow.length !== 0 ? "PENDING" : d.status,
+      transactionId: pendingBorrow.length !== 0 ? pendingBorrow[0].id : null,
     };
   });
 
@@ -140,6 +143,7 @@ export default function DataTable({
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="BORROWED">Borrowed</SelectItem>
                 <SelectItem value="ARCHIVED">Archived</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="EXPIRED">Expired</SelectItem>
               </SelectContent>
             </Select>
@@ -188,21 +192,7 @@ export default function DataTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {d.status !== "BORROWED" ? (
-                          <>
-                            <BorrowDocument
-                              docId={d.id}
-                              borrowerId={d.ownerId}
-                            />
-                            <>
-                              {d.status === "ARCHIVED" ? (
-                                <UnarchiveDocument docId={d.id} />
-                              ) : (
-                                <ArchiveDocument docId={d.id} />
-                              )}
-                            </>
-                          </>
-                        ) : (
+                        {d.status === "BORROWED" && (
                           <ReturnDocument transactionId={d.transactionId!} />
                         )}
                         <UpdateLocation id={d.id} />

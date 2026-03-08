@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 
 export default async function page() {
   const documents = prisma.document.findMany({
-    include: { documentType: true, owner: true },
+    include: { documentType: true, owner: true, renewedTo: true },
   });
 
   return (

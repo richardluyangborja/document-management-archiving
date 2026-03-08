@@ -51,6 +51,11 @@ export async function AdminSidebar() {
       href: "/admin/audit-trail",
       icon: ScanEye,
     },
+    // {
+    //   name: "Users Management",
+    //   href: "/admin/users-management",
+    //   icon: UsersRound,
+    // },
   ];
 
   return (

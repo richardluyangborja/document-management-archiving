@@ -5,24 +5,21 @@ import { getIpAddress } from "@/lib/getIpAddress";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function restoreAction(documentId: string) {
-  const result = await prisma.document.update({
-    where: { id: documentId },
-    data: {
-      isDeleted: false,
-    },
+export async function requestBorrowAction(docId: string, borrowerId: string) {
+  const result = await prisma.borrowTransaction.create({
+    data: { documentId: docId, borrowerId: borrowerId, status: "PENDING" },
   });
 
   const { userId } = await verifySession();
 
   await prisma.auditLog.create({
     data: {
-      action: "DOCUMENT_RESTORED",
+      action: "DOCUMENT_REQUESTED",
       ipAddress: await getIpAddress(),
-      documentId: result.id,
+      documentId: result.documentId,
       userId,
     },
   });
 
-  revalidatePath("/admin/retrieval/restore");
+  revalidatePath("/documents");
 }

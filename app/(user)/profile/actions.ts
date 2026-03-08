@@ -11,6 +11,7 @@ import {
 import * as z from "zod";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getIpAddress } from "@/lib/getIpAddress";
 
 export async function editAddressAction(
   _state: FormState,
@@ -33,6 +34,14 @@ export async function editAddressAction(
   const result = await prisma.user.update({
     where: { id: userId },
     data: { address: validatedFields.data.address },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "ACCOUNT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      userId,
+    },
   });
 
   revalidatePath("/profile");
@@ -60,6 +69,14 @@ export async function editContactNumberAction(
   const result = await prisma.user.update({
     where: { id: userId },
     data: { contactNumber: validatedFields.data.contactNumber },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "ACCOUNT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      userId,
+    },
   });
 
   revalidatePath("/profile");
@@ -92,6 +109,14 @@ export async function editFullnameAction(
     data: { fullname },
   });
 
+  await prisma.auditLog.create({
+    data: {
+      action: "ACCOUNT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      userId,
+    },
+  });
+
   revalidatePath("/profile");
   return { message: `Name changed to ${result.fullname}` };
 }
@@ -117,6 +142,14 @@ export async function editBirthDateAction(
   await prisma.user.update({
     where: { id: userId },
     data: { birthDate: validatedFields.data.birthDate },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "ACCOUNT_MODIFIED",
+      ipAddress: await getIpAddress(),
+      userId,
+    },
   });
 
   revalidatePath("/profile");

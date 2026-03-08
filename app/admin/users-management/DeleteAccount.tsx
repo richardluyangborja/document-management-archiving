@@ -12,25 +12,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { borrowDocumentAction } from "./actions";
+import { deleteAccountAction } from "./actions";
 
-export default function BorrowDocument({
-  transactionId,
-}: {
-  transactionId: string;
-}) {
+export default function DeleteAccount({ userId }: { userId: string }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          Mark as borrowed
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={(e) => e.preventDefault()}
+        >
+          Delete
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Mark this document as borrowed?</DialogTitle>
+          <DialogTitle>Delete this account?</DialogTitle>
           <DialogDescription>
-            This action will mark the document as borrowed.
+            This action will permanently delete the account.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -39,9 +38,10 @@ export default function BorrowDocument({
           </DialogClose>
           <DialogClose asChild>
             <Button
-              onClick={async () => await borrowDocumentAction(transactionId)}
+              variant="destructive"
+              onClick={async () => await deleteAccountAction(userId)}
             >
-              Confirm
+              Delete account
             </Button>
           </DialogClose>
         </DialogFooter>

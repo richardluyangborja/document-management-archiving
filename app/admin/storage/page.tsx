@@ -22,32 +22,48 @@ import {
 } from "@/components/ui/dropdown-menu";
 // import { verifySession } from "@/lib/dal";
 import prisma from "@/lib/prisma";
-import { DocumentStatus, Role } from "@/lib/generated/prisma/enums";
+import { BorrowStatus, Role } from "@/lib/generated/prisma/enums";
 import EditVersion from "./EditVersion";
 import EditDocumentType from "./EditDocumentType";
 import EditDocumentOwner from "./EditSubject";
 import EditExpirationDate from "./EditExpirationDate";
 import { Badge } from "@/components/ui/badge";
 import DeleteDocument from "./DeleteDocument";
+import ArchiveDocument from "../tracking/ArchiveDocument";
+import UnarchiveDocument from "../tracking/UnarchiveDocument";
 
 export default async function page() {
   // const user = await verifySession();
   const documents = await prisma.document.findMany({
-    include: { owner: true, documentType: true },
+    include: { owner: true, borrows: true, documentType: true },
     where: { isDeleted: false },
+  });
+
+  const computedDocs = documents.map((d) => {
+    const activeBorrow = d.borrows.filter((a) => a.status === "ACTIVE");
+    const pendingBorrow = d.borrows.filter((a) => a.status === "PENDING");
+    if (activeBorrow.length !== 0)
+      return {
+        ...d,
+        status: "BORROWED",
+      };
+    return {
+      ...d,
+      status: pendingBorrow.length !== 0 ? "PENDING" : d.status,
+    };
   });
 
   const documentTypeConfig = [
     {
       documentType: "Community Engagement",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Community Engagement",
       ),
       color: "bg-purple-200",
     },
     {
       documentType: "Revenue Collection and Real Property Tax",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) =>
           d.documentType.name === "Revenue Collection and Real Property Tax",
       ),
@@ -55,42 +71,42 @@ export default async function page() {
     },
     {
       documentType: "Election Voting Management",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Election Voting Management",
       ),
       color: "bg-orange-200",
     },
     {
       documentType: "Barangay Management",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Barangay Management",
       ),
       color: "bg-blue-200",
     },
     {
       documentType: "Disaster Response And Solid Waste",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Disaster Response And Solid Waste",
       ),
       color: "bg-teal-200",
     },
     {
       documentType: "Business Permit and Licensing",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Business Permit and Licensing",
       ),
       color: "bg-yellow-200",
     },
     {
       documentType: "Public Market and Vendor Management",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Public Market and Vendor Management",
       ),
       color: "bg-pink-100",
     },
     {
       documentType: "Office of the Senior Citizen Management",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) =>
           d.documentType.name === "Office of the Senior Citizen Management",
       ),
@@ -98,7 +114,7 @@ export default async function page() {
     },
     {
       documentType: "Healthcare And Social Welfare",
-      data: documents.filter(
+      data: computedDocs.filter(
         (d) => d.documentType.name === "Healthcare And Social Welfare",
       ),
       color: "bg-lime-200",
@@ -125,7 +141,6 @@ export default async function page() {
             key={i}
             title={docType.documentType}
             documents={docType.data}
-            color={docType.color}
           />
         ))}
       </section>
@@ -135,12 +150,11 @@ export default async function page() {
 
 export async function DocumentType({
   title,
-  color,
   documents,
 }: {
   title: string;
-  color: string;
-  documents: ({
+  documents: {
+    status: string;
     owner: {
       id: string;
       createdAt: Date;
@@ -157,18 +171,28 @@ export async function DocumentType({
       name: string;
       description: string | null;
     };
-  } & {
+    borrows: {
+      id: string;
+      status: BorrowStatus;
+      createdAt: Date;
+      borrowDate: Date;
+      dueDate: Date | null;
+      returnDate: Date | null;
+      documentId: string;
+      borrowerId: string;
+    }[];
     id: string;
     filePath: string | null;
     location: string;
-    status: DocumentStatus;
     version: number;
     expirationDate: Date | null;
+    isDeleted: boolean;
+    backupPath: string | null;
     createdAt: Date;
     ownerId: string;
     documentTypeId: string;
     renewedFromId: string | null;
-  })[];
+  }[];
 }) {
   const users = prisma.user.findMany({
     select: {
@@ -181,7 +205,7 @@ export async function DocumentType({
   });
 
   return (
-    <Card className={`col-span-12 ${color}`}>
+    <Card className={`col-span-12`}>
       <CardContent>
         <Collapsible className="data-[state=open]:bg-muted rounded-md">
           <CollapsibleTrigger asChild>
@@ -214,7 +238,7 @@ export async function DocumentType({
                         {new Date() > new Date(doc.expirationDate!) &&
                         doc.status !== "BORROWED" &&
                         doc.status !== "ARCHIVED"
-                          ? "expired"
+                          ? "EXPIRED"
                           : doc.status}
                       </Badge>
                     </TableCell>
@@ -239,6 +263,11 @@ export async function DocumentType({
                           <EditDocumentOwner id={doc.id} users={users} />
                           <EditExpirationDate id={doc.id} />
                           <DropdownMenuSeparator />
+                          {doc.status === "ARCHIVED" ? (
+                            <UnarchiveDocument docId={doc.id} />
+                          ) : (
+                            <ArchiveDocument docId={doc.id} />
+                          )}
                           <DeleteDocument docId={doc.id} />
                         </DropdownMenuContent>
                       </DropdownMenu>

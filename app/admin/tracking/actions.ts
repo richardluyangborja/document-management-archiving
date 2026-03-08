@@ -5,6 +5,8 @@ import * as z from "zod";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { FormState, UpdateLocationZodSchema } from "./types";
+import { getIpAddress } from "@/lib/getIpAddress";
+import { verifySession } from "@/lib/dal";
 
 export async function updateLocationAction(
   _state: FormState,
@@ -22,8 +24,6 @@ export async function updateLocationAction(
     };
   }
 
-  // const { userId } = await verifySession();
-
   const id = formData.get("id");
 
   if (!id || typeof id !== "string") {
@@ -35,16 +35,36 @@ export async function updateLocationAction(
     data: { location: validatedFields.data.location },
   });
 
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_LOCATION_CHANGE",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
+    },
+  });
+
   revalidatePath("/admin/tracking");
   return { message: `Document moved to ${result.location}` };
 }
 
 export async function archiveDocumentAction(docId: string): Promise<FormState> {
-  // const { userId } = await verifySession();
-
-  await prisma.document.update({
+  const result = await prisma.document.update({
     where: { id: docId },
     data: { status: "ARCHIVED" },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_ARCHIVED",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
+    },
   });
 
   revalidatePath("/admin/tracking");
@@ -54,11 +74,20 @@ export async function archiveDocumentAction(docId: string): Promise<FormState> {
 export async function unarchiveDocumentAction(
   docId: string,
 ): Promise<FormState> {
-  // const { userId } = await verifySession();
-
-  await prisma.document.update({
+  const result = await prisma.document.update({
     where: { id: docId },
     data: { status: "ACTIVE" },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_UNARCHIVED",
+      ipAddress: await getIpAddress(),
+      documentId: result.id,
+      userId,
+    },
   });
 
   revalidatePath("/admin/tracking");
@@ -66,20 +95,28 @@ export async function unarchiveDocumentAction(
 }
 
 export async function borrowDocumentAction(
-  docId: string,
-  borrowerId: string,
+  transactionId: string,
 ): Promise<FormState> {
-  // const { userId } = await verifySession();
-
-  await prisma.borrowTransaction.create({
+  const result = await prisma.borrowTransaction.update({
+    where: { id: transactionId },
     data: {
-      borrowerId,
-      documentId: docId,
+      status: "ACTIVE",
+    },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_BORROWED",
+      ipAddress: await getIpAddress(),
+      documentId: result.documentId,
+      userId,
     },
   });
 
   revalidatePath("/admin/tracking");
-  return { message: `Document archived.` };
+  return { message: `Document borrowed.` };
 }
 
 export async function returnDocumentAction(
@@ -87,11 +124,40 @@ export async function returnDocumentAction(
 ): Promise<FormState> {
   // const { userId } = await verifySession();
 
-  await prisma.borrowTransaction.update({
+  const result = await prisma.borrowTransaction.delete({
     where: { id: transactionId },
-    data: { status: "RETURNED" },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_RETURNED",
+      ipAddress: await getIpAddress(),
+      documentId: result.documentId,
+      userId,
+    },
   });
 
   revalidatePath("/admin/tracking");
-  return { message: `Document unarchived.` };
+  return { message: `Document returned.` };
+}
+
+export async function refuseBorrowAction(transactionId: string) {
+  const result = await prisma.borrowTransaction.delete({
+    where: { id: transactionId },
+  });
+
+  const { userId } = await verifySession();
+
+  await prisma.auditLog.create({
+    data: {
+      action: "DOCUMENT_REFUSED",
+      ipAddress: await getIpAddress(),
+      documentId: result.documentId,
+      userId,
+    },
+  });
+
+  revalidatePath("/admin/tracking");
 }

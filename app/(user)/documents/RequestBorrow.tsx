@@ -11,26 +11,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { borrowDocumentAction } from "./actions";
+import { requestBorrowAction } from "./request-borrow-action";
+import { toast } from "sonner";
 
-export default function BorrowDocument({
-  transactionId,
+export default function RequestBorrow({
+  docId,
+  borrowerId,
 }: {
-  transactionId: string;
+  docId: string;
+  borrowerId: string;
 }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          Mark as borrowed
-        </DropdownMenuItem>
+        <Button variant="outline">Request for borrowing</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Mark this document as borrowed?</DialogTitle>
+          <DialogTitle>Request for borrowing</DialogTitle>
           <DialogDescription>
-            This action will mark the document as borrowed.
+            Upon confirming, this will submit a request for borrowing.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -39,7 +39,10 @@ export default function BorrowDocument({
           </DialogClose>
           <DialogClose asChild>
             <Button
-              onClick={async () => await borrowDocumentAction(transactionId)}
+              onClick={async () => {
+                await requestBorrowAction(docId, borrowerId);
+                toast("Borrow request sent.");
+              }}
             >
               Confirm
             </Button>
